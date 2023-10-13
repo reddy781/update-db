@@ -1,0 +1,116 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+
+// Create an Express application
+const app = express();
+
+// Connect to your MongoDB database
+mongoose.connect('mongodb://localhost/football_team', { useNewUrlParser: true, useUnifiedTopology: true });
+const db = mongoose.connection;
+
+// Define a Player schema
+const playerSchema = new mongoose.Schema({
+  name: String,
+  position: String,
+  passingTDs: Number,
+  rushingYards: Number,
+  fieldGoalsMade: Number,
+  sacks: Number
+});
+
+const Player = mongoose.model('Player', playerSchema);
+
+// Middleware for parsing JSON data
+app.use(bodyParser.json());
+
+// Create a new player
+app.post('/players', async (req, res) => {
+  try {
+    const player = new Player(req.body);
+    await player.save();
+    res.status(201).json(player);
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid data' });
+  }
+});
+
+// Read all players
+app.get('/players', async (req, res) => {
+  const players = await Player.find();
+  res.json(players);
+});
+
+// Read a specific player by ID
+app.get('/players/:id', async (req, res) => {
+  try {
+    const player = await Player.findById(req.params.id);
+    if (player) {
+      res.json(player);
+    } else {
+      res.status(404).json({ error: 'Player not found' });
+    }
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid ID' });
+  }
+});
+
+// Update a player by ID
+app.put('/players/:id', async (req, res) => {
+  try {
+    const player = await Player.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (player) {
+      res.json(player);
+    } else {
+      res.status(404).json({ error: 'Player not found' });
+    }
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid ID' });
+  }
+});
+
+// Delete a player by ID
+app.delete('/players/:id', async (req, res) => {
+  try {
+    const result = await Player.findByIdAndDelete(req.params.id);
+    if (result) {
+      res.sendStatus(204);
+    } else {
+      res.status(404).json({ error: 'Player not found' });
+    }
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid ID' });
+  }
+});
+
+// Define query endpoints
+app.get('/players/most-passing-tds', async (req, res) => {
+  const player = await Player.findOne({ position: "QB" }).sort({ passingTDs: -1 });
+  res.json(player);
+});
+
+app.get('/players/most-rushing-yards', async (req, res) => {
+  const player = await Player.findOne({ position: "RB" }).sort({ rushingYards: -1 });
+  res.json(player);
+});
+
+app.get('/players/least-rushing-yards', async (req, res) => {
+  const player = await Player.findOne({ position: "RB" }).sort({ rushingYards: 1 });
+  res.json(player);
+});
+
+app.get('/players/sorted-by-field-goals', async (req, res) => {
+  const players = await Player.find({ position: "K" }).sort({ fieldGoalsMade: -1 });
+  res.json(players);
+});
+
+app.get('/players/most-sacks', async (req, res) => {
+  const player = await Player.findOne().sort({ sacks: -1 });
+  res.json(player);
+});
+
+// Start the server
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
